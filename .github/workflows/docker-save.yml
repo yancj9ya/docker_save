@@ -1,0 +1,34 @@
+name: 批量打包 Docker 镜像
+on: [push] # 只要你修改了 images.txt 并提交，就会触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 读取清单并下载打包
+        run: |
+          mkdir -p ./output
+          # 循环读取每一行镜像名
+          while IFS= read -r image || [ -n "$image" ]; do
+            if [ -z "$image" ]; then continue; fi
+            echo "正在处理镜像: $image"
+            
+            # 拉取镜像
+            docker pull $image
+            
+            # 将镜像名中的斜杠替换为下划线，作为文件名
+            filename=$(echo $image | tr '/' '_' | tr ':' '_').tar
+            
+            # 打包保存
+            docker save $image -o ./output/$filename
+            echo "已完成打包: $filename"
+          done < images.txt
+
+      - name: 上传所有打包好的镜像
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-docker-images
+          path: ./output/*.tar
